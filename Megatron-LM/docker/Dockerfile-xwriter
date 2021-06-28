@@ -1,0 +1,8 @@
+FROM xiaoice.azurecr.cn/corechat-web/pytorch:py3-serving
+WORKDIR /workspace
+COPY . /workspace/xwriter
+WORKDIR /workspace/xwriter
+
+CMD ["python3", "generate_samples_gpt2_interactive_simple_serve.py"]
+
+

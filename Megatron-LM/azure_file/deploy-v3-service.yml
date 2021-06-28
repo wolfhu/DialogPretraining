@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: chat-gpt2-session-v4
+  name: chat-gpt2-session-v4
+  namespace: gpt-session
+spec:
+  ports:
+  - port: 3032
+    targetPort: 3322
+  selector:
+    app: chat-gpt2-session-v4
+  type: LoadBalancer

@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: experiment-xwriter-tongren-app-config
+  namespace: experiment-xwriter
+  labels:
+    app: experiment-xwriter
+data:
+  CheckPointPath: "production/tongren"
+  SocketMode: "True"
+  cuda_device_id: "2"
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: xwriter-serving-20200728-tongren
+  namespace: experiment-xwriter
+  labels:
+    app: xwriter-serving-tongren-20200728
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: xwriter-serving-tongren-20200728
+    spec:
+      containers:
+      - name: xwriter-serving-tongren-20200728
+        image: xiaoice.azurecr.io/xwriter/pytorch-py3-serving:202007301711
+        readinessProbe:
+          tcpSocket:
+            port: 3322
+          initialDelaySeconds: 120  # 首次检查时间
+          periodSeconds: 15       # 检查时间间隔
+        livenessProbe:
+          tcpSocket:
+            port: 3322
+          initialDelaySeconds: 120   
+          periodSeconds: 15
+        volumeMounts:
+          - name: azure
+            mountPath: /mnt/azure
+          - name: app-config
+            mountPath: /root/config
+        ports:
+          - containerPort: 3322
+      volumes:
+        - name: azure
+          azureFile:
+            secretName: azure-file-secret
+            shareName: trainingmodels
+            readOnly: false
+        - name: app-config
+          configMap:
+            name: experiment-xwriter-tongren-app-config
+            defaultMode: 0755
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/instance-type
+                operator: In
+                values:
+                - Standard_NC24s_v3
+      #tolerations:
+      #- effect: "NoSchedule"
+      #  key: "kubernetes.azure.com/scalesetpriority"
+      #  operator: "Equal"
+      #  value: "spot"
+      nodeSelector:
+        agentpool: spotgpunc24
+---
+# ------ production slot ------
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: xwriter-tongren-serving
+    slot: production
+  name: xwriter-tongren-serving-production
+  namespace: experiment-xwriter
+spec:
+  ports:
+  - port: 80
+    targetPort: 3322
+  selector:
+    app: xwriter-serving-tongren-20200728
+  type: LoadBalancer
+

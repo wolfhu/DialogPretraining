@@ -1,0 +1,49 @@
+# ===========
+# base images
+# ===========
+FROM nvcr.io/nvidia/pytorch:20.03-py3
+
+
+# ===============
+# system packages
+# ===============
+RUN apt-get update && apt-get install -y \
+    bash-completion \
+    emacs \
+    git \
+    graphviz \
+    htop \
+    libopenexr-dev \
+    rsync \
+    wget \
+    build-essential \
+    python3-dev \
+    nginx \
+    supervisor \
+    lsof \
+&& rm -rf /var/lib/apt/lists/*
+
+# ============
+# nginx packages
+# ============
+# Install uWSGI
+RUN gcc --version
+RUN apt-get update && apt-get install -y gcc-4.8
+RUN rm /usr/bin/gcc && ln -s /usr/bin/gcc-4.8 /usr/bin/gcc
+RUN ls /usr/bin/gcc* -l
+RUN gcc --version
+RUN pip install uwsgi
+RUN rm /usr/bin/gcc && ln -s /usr/bin/gcc-7 /usr/bin/gcc
+RUN gcc --version
+
+COPY ./docker/nginx.conf /etc/nginx/
+COPY ./docker/uwsgi.ini /etc/uwsgi/
+COPY ./docker/supervisord-debian.conf /etc/supervisor/conf.d/supervisord.conf
+
+# ============
+# pip packages
+# ============
+RUN pip install --upgrade pip && \
+    pip install --upgrade setuptools
+COPY ./docker/requirements.txt /tmp/
+RUN pip install --upgrade --ignore-installed -r /tmp/requirements.txt

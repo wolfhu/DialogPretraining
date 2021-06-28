@@ -1,0 +1,8 @@
+{
+   "general_distill": true,
+   "mlm": true,
+   "alpha_ce":  5.0,
+   "alpha_mlm": 2.0,
+   "alpha_cos": 1.0
+
+}

@@ -1,0 +1,8 @@
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
+
+nohup python -u run_glue.py --model_type=bert --model_name_or_path=./chinese_roberta_wwm_ext_pytorch --task_name=comp --do_train --do_eval --do_lower_case --data_dir=./data/ --max_seq_length=80 --per_gpu_eval_batch_size=80 --per_gpu_train_batch_size=80 --learning_rate=2e-5 --num_train_epochs=3.0 --output_dir=./output/ > log.txt 2>&1 &
+
+nohup python -u run_glue.py --model_type=bert --model_name_or_path=./output/checkpoint-64500/ --task_name=comp --no_cuda --do_eval --do_lower_case --data_dir=./data/ --max_seq_length=80 --per_gpu_eval_batch_size=80 --per_gpu_train_batch_size=80 --learning_rate=2e-5 --num_train_epochs=3.0 --output_dir=./output/checkpoint-64500/ > log_64500.txt 2>&1 &
+
+
+nohup python -u run_glue.py --model_type=bert --model_name_or_path=./output/ --task_name=comp --do_eval --do_lower_case --data_dir=./data/ --max_seq_length=80 --per_gpu_eval_batch_size=80 --per_gpu_train_batch_size=80 --learning_rate=2e-5 --num_train_epochs=3.0 --output_dir=./output/ > log.txt 2>&1 &

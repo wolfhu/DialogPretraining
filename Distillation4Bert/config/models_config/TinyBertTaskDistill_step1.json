@@ -1,0 +1,9 @@
+{
+       "task_distill": true,
+       "use_hidden_states": true,
+       "hidden_match_type": "linear",
+       "hidden_mse":  1.0,
+       "use_attentions": true,
+       "att_match_type": "linear",
+        "att_mse":  1.0
+}

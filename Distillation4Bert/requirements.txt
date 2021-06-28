@@ -1,0 +1,15 @@
+boto3
+google-cloud-language
+inflect
+nltk
+numpy
+pandas
+requests
+sentencepiece
+tensorflow
+tqdm
+regex
+pandas
+tensorboardX
+allennlp
+sklearn

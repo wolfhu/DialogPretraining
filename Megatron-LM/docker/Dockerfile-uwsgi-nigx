@@ -1,0 +1,16 @@
+# ===========
+# base images
+# Please notice:
+# Nginx is specified for this project. If you want to use this base image, 
+# please modify the uwsgi.ini file and copy it to /etc/uwsgi/
+# ===========
+FROM xiaoice.azurecr.cn/corechat-web/pytorch:py3-serving
+
+#copy data to workdir
+WORKDIR /workspace
+COPY . /workspace/gpt2
+WORKDIR /workspace/gpt2
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+
+#ENTRYPOINT ["bash", "scripts/generate_text_gpt2_chat_interactive_simple_serve.sh"]

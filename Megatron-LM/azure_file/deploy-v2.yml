@@ -1,0 +1,30 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: chat-gpt2-session
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: chat-gpt2-session
+    spec:
+      containers:
+      - name: chat-gpt2-session
+        image: chatdeployacr.azurecr.io/gpt2_chat:20200605
+        ports:
+        - containerPort: 9999
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: chat-gpt2-session
+  name: chat-gpt2-session
+spec:
+  ports:
+  - port: 9999
+    targetPort: 9999
+  selector:
+    app: chat-gpt2-session
+  type: LoadBalancer

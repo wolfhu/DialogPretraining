@@ -1,0 +1,6 @@
+{
+       "task_distill": true,
+       "alpha_ce": 0.95,
+       "task_cros": 0.05,
+       "task_pkd": 1.0
+}

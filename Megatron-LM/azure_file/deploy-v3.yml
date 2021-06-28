@@ -1,0 +1,53 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: chat-gpt2-session-v4
+  namespace: gpt-session
+  labels:
+    app: chat-gpt2-session-v4
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: chat-gpt2-session-v4
+    spec:
+      containers:
+      - name: chat-gpt2-session-v4
+        image: xiaoice.azurecr.cn/corechat-web/session-chat-gpt2:20200702
+        readinessProbe:
+          tcpSocket:
+            port: 3322
+          initialDelaySeconds: 3  # 首次检查时间
+          periodSeconds: 5       # 检查时间间隔
+        # 在容器启动10秒后，kubelet将发送第一个livenessProbe探针，仍然尝试连接容器的3322端口，如果连接失败则重启容器。
+        livenessProbe:
+          tcpSocket:
+            port: 3322
+          initialDelaySeconds: 10   
+          periodSeconds: 15
+        volumeMounts:
+          - name: azure
+            mountPath: /mnt/azure
+        ports:
+        - containerPort: 3322
+      volumes:
+      - name: azure
+        azureFile:
+          secretName: azure-secret
+          shareName: gpt-chat-session
+          readOnly: false
+# ---
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   labels:
+#     run: chat-gpt2-session-v4
+#   name: chat-gpt2-session-v4
+# spec:
+#   ports:
+#   - port: 2233
+#     targetPort: 2233
+#   selector:
+#     app: chat-gpt2-session-v4
+#   type: LoadBalancer

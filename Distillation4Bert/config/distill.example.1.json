@@ -1,0 +1,48 @@
+{
+  "model_type":"theseus-gpt2",
+  "teacher_architectures": {
+    "model_type": "gpt2",
+    "model_name_or_path":"gpt2-large-chinese-refine",
+    "load":"/home/t-yuniu/xiaoice/yuwu/Model_130G",
+    "config_file":"resources/config/gpt2-large-chinese-refine.json"
+  },
+  "student_architectures": {
+    "model_type": "bert-task-distill",
+    "model_name_or_path": "output_test/TinyBertGeneralDistill",
+    "config_file":"config/student.config.json"
+  },
+  "task_name": "chat-generation",
+  "data_dir": "/home/t-yuniu/xiaoice/yuniu/dataset/zhfiction/chitchat/distill/",
+  "output_dir": "output_test",
+  "do_train" : true,
+  "do_eval" : true,
+  "configuration_file": "must feed this value when the distill type is not in the exist map",
+  "per_gpu_train_batch_size" : 8,
+  "num_train_epochs": 2,
+  "max_seq_length": 128,
+  "warmup_proportion": 0.01,
+  "theseus_scheduler" :{
+    "note":"this is only for Theseus bert, must init when distilling with theseus. Otherwise, ignore it",
+    "replacing_rate": 0.3,
+    "scheduler_type": "linear",
+    "scheduler_linear_k": 0.0006
+  },
+  "dc_bert_model_config":{
+    "note":"this is only for DCbert, must init when distilling with dc-bert. Otherwise, ignore it",
+    "last_layer_model_type": "transformer",
+    "copy_from_bert_layer_num": -1
+  },
+  "rnn_config":{
+    "rnn_type": "lstm",
+    "elmo_pretrain": false
+  },
+
+  "general_distiller_scheduler": {
+    "note":"this is only for general_distiller, must init when distilling with general_distiller. Otherwise, ignore it"
+  },
+  "tiny_bert_scheduler":{
+    "note":"this is only for tiny-bert, must init when distilling with tiny-bert. Otherwise, ignore it"
+
+  }
+
+}

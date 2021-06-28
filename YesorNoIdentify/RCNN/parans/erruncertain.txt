@@ -1,0 +1,36 @@
+neg	没有，我们，貌似，今天，才认识的吧
+certain	emmm是吧
+neg	嗯，我们好像不在同一频道上。
+certain	一般都会自己回来
+question	也许……没有男朋友？！
+certain	看他对你有没有意思咯
+neg	额，可能活得还不够久
+neg	好像总喝饮料，不太好是吧饮料
+certain	喜欢的吧……
+neg	可能是因为你不能满足我了吧
+neg	还好吧，不过我喜欢小狼狗
+certain	都会有吧
+certain	应该啊
+certain	……可以吧
+question	有时忙,有时不忙,看情况
+neg	一般不是 睡一觉就好了
+neg	可能他们不懂你吧～
+neg	好像没有吧。
+certain	我……还行
+certain	你应该被狗溜了
+certain	我觉得你挺累的
+neg	可能吧，我也不知道
+neg	不知道 可能有病吧
+certain	应该还好吧
+neg	也可能回不去了
+question	可能吧？
+neg	不太确定
+neg	emmm说不准哦
+neg	有时候觉得，有时候不会
+question	对啊，咬到人怎么办，听说晚上狗眼睛冒绿光
+certain	还可以叭！
+certain	还行吧，
+certain	下午和晚上吧
+neg	应该是他脾气不太好吧
+neg	我差不多不是
+neg	不错吧

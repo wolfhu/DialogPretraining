@@ -1,0 +1,8 @@
+
+from .dc_bert import DCBertForSequenceClassification
+from .thesus_bert import TheseusBertForSequenceClassification
+from .replacement_scheduler import LinearReplacementScheduler, ConstantReplacementScheduler
+# from .distiller import Distiller
+from .distiller_general import Distiller
+from .modeling_bert_distill import DistillBertForMaskedLM, DistillBertForSequenceClassification
+from .modeling_lstm import BLstmModel, BLSTMForSequenceClassification

@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: experiment-xwriter-app-config
+  namespace: experiment-xwriter
+  labels:
+    app: experiment-xwriter
+data:
+  finetune_config: '{"train_data": "chuanyue.json", "checkpoint_load": "basemodel-20200706", "checkpoint_save": "model_chuanyue"}'
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: xwriter-finetune-20200713
+  namespace: experiment-xwriter
+  labels:
+    app: xwriter-finetune-20200713
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: xwriter-finetune-20200713
+    spec:
+      containers:
+      - name: xwriter-finetune-20200713
+        image: xiaoice.azurecr.io/xwriter/pytorch-py3-finetune:20200713
+        volumeMounts:
+          - name: azure
+            mountPath: /mnt/azure
+          - name: app-config
+            mountPath: /root/config
+        ports:
+          - containerPort: 3322
+      volumes:
+        - name: azure
+          azureFile:
+            secretName: azure-file-secret
+            shareName: trainingmodels
+            readOnly: false
+        - name: app-config
+          configMap:
+            name: experiment-xwriter-app-config
+            defaultMode: 0755
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: beta.kubernetes.io/instance-type
+                operator: In
+                values:
+                - Standard_NC24s_v3
+      nodeSelector:
+        agentpool: spotgpunc24
+---
+# ------ production slot ------
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    run: xwriter-finetune
+    slot: production
+  name: xwriter-finetune-production
+  namespace: experiment-xwriter
+spec:
+  ports:
+  - port: 80
+    targetPort: 3322
+  selector:
+    app: xwriter-finetune-20200713
+  type: LoadBalancer

@@ -1,0 +1,5 @@
+gpt2_345m_chat_session_finetune_v2
+.git
+__pycache__
+azure_file
+deployments

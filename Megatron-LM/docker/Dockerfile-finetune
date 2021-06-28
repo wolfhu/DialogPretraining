@@ -1,0 +1,6 @@
+FROM xiaoice.azurecr.cn/corechat-web/pytorch:py3-serving
+WORKDIR /workspace
+COPY . /workspace/xwriter
+WORKDIR /workspace/xwriter
+
+CMD ["python3", "pretrain_gpt2_serve.py"]
