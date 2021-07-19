@@ -213,6 +213,26 @@ def remove_repeat_ch(string):
     return res
 
 
+def remove_repeat_punc(string):
+    """
+    puncutation连续重复1次以上，则删除多余的重复字符
+    """
+    punctuation_list = {",",".","!","?","。","，","！","？"}
+    if len(string) == 0:
+        return string
+    res = string[0]
+    repeat_count = 1
+    prev = string[0]
+    for ch in string[1:]:
+        if ch in ch == prev:
+            repeat_count += 1
+        else:
+            repeat_count = 1
+            prev = ch
+        if repeat_count <= 1:
+            res += ch
+    return res
+
 def str_extreme_clean(string):
     """
     终极字符串清洗
@@ -223,6 +243,7 @@ def str_extreme_clean(string):
     string = remove_escape_character(string)
     string = remove_qq(string)
     string = remove_repeat_ch(string)
+    string = remove_repeat_punc(string)
     string = remove_time_stamp(string)
     string = string.strip()
     return string
