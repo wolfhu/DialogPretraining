@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     bash-completion \
     emacs \
     git \
+    vim \
     graphviz \
     htop \
     libopenexr-dev \
@@ -41,4 +42,4 @@ WORKDIR /workspace
 COPY . /workspace/gpt2
 WORKDIR /workspace/gpt2
 
-ENTRYPOINT ["bash", "scripts/generate_text_gpt2_chat_interactive_simple_serve.sh"]
+#ENTRYPOINT ["bash", "scripts/generate_text_gpt2_chat_interactive_simple_serve.sh"]
