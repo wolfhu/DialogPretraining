@@ -37,6 +37,7 @@ from utils import load_checkpoint
 from data_utils import make_tokenizer
 from configure_data import configure_data
 import mpu
+import editdistance
 
 from fp16 import FP16_Module
 from model import GPT2Model
@@ -101,7 +102,6 @@ def get_model(args):
                       checkpoint_num_layers=args.checkpoint_num_layers,
                       parallel_output=False,
                       no_parallel=args.model_parallel_size)
-
     if args.model_parallel_size == 1 or mpu.get_data_parallel_rank() == 0:
         print(' > number of parameters on model parallel rank {}: {}'.format(
             mpu.get_model_parallel_rank() if args.model_parallel_size > 1 else 0,
@@ -124,7 +124,6 @@ def setup_model(args):
     """Setup model and optimizer."""
 
     model = get_model(args)
-
     if args.load is not None:
         _ = load_checkpoint(
             model, None, None, args)
@@ -308,6 +307,7 @@ def generate():
             for counter, decode_tokens in enumerate(token_stream):
                 decode_tokens, _, probs = decode_tokens
                 decode_tokens = decode_tokens[0].cpu().numpy().tolist()
+ 
                 if decode_tokens[-1] == end_token_id or len(decode_tokens) >= maxlen or len(decode_tokens) + len(output_tokens) >= out_seq_length:
                     break
 
@@ -358,7 +358,7 @@ def generate_chat_samples_interactive(model, tokenizer, args):
             terminate_runs=0
 
             if args.model_parallel_size == 1 or mpu.get_model_parallel_rank() == 0:
-                raw_text = input("\nMe (stop to exit) >>> ")
+                raw_text = input("\n Me:")            
                 while not raw_text:
                     print('Prompt should not be empty!')
                     raw_text = input("\nMe (stop to exit) >>> ")
@@ -380,7 +380,7 @@ def generate_chat_samples_interactive(model, tokenizer, args):
             else:
                 context_tokens = tokenizer.EncodeAsIds("EMPTY TEXT").tokenization
                 context_length = len(context_tokens)
-            
+            print("input {0}".format(raw_text))
             if args.world_size > 1:
                 terminate_runs_tensor = torch.cuda.LongTensor([terminate_runs])
                 torch.distributed.broadcast(terminate_runs_tensor, mpu.get_model_parallel_src_rank(), group=mpu.get_model_parallel_group())
@@ -494,7 +494,6 @@ def generate_multi_case(model, tokenizer, context_tokens, context_length, args, 
         #             results.append((None, case_tokens[id], log_probs[id],))
         #     if args.world_size > 1:
         #         torch.distributed.barrier(group=mpu.get_model_parallel_group())
-
         decode_tokens = [context_tokens.copy() for _ in range(args.repeat_count)]
         case_tokens, log_probs = generate_one_case(model, tokenizer, decode_tokens, context_length, args)
         # case_tokens, log_probs = generate_one_case(model, tokenizer, context_tokens, context_length, args)
@@ -520,12 +519,23 @@ def get_one_legal_case(generate_results, context_texts, args, print_intermediate
 
     global _repeat1_regex, _repeat2_regex, _repeat3_regex
 
+    generate_results_with_penalty = []
+    for id, res in enumerate(generate_results):
+        if res[1] in context_texts[-1] or context_texts[-1] in res[1]:
+            generate_results_with_penalty.append((res[0],res[1],res[2] - 100))
+        elif len(context_texts[-1]) >= 5 and editdistance.eval(context_texts[-1], res[1]) / min(len(context_texts[-1]), len(res[1]) ) <= 0.3:
+            generate_results_with_penalty.append((res[0],res[1],res[2] - 100))
+        else:
+            generate_results_with_penalty.append(res)
+
+    generate_results  = generate_results_with_penalty
+
     generate_results.sort(key=lambda x:x[2], reverse=True)
 
     if print_intermediate_result:
         print("\nsorted:")
         for id, res in enumerate(generate_results):
-                    print("\t", id, ":", res[1], res[2], flush=True)
+            print("\t", id, ":", res[1], res[2], flush=True)
 
     cur_context_texts = context_texts[max(0, len(context_texts) - args.max_context_turn):]
     for id, cur_gen_res in enumerate(generate_results):
@@ -551,6 +561,8 @@ def generate_one_case(model, tokenizer, context_tokens, context_length, args):
         geneate_result = None
         for counter, cur_decode_result in enumerate(token_stream):
             geneate_result = cur_decode_result
+            if counter > 50:
+                break
 
         case_tokens = []
         log_probs = []
@@ -565,7 +577,8 @@ def generate_one_case(model, tokenizer, context_tokens, context_length, args):
                     pre_sep_id = max(0, len(decode_tokens) - 2)
                     while pre_sep_id >= 0 and decode_tokens[pre_sep_id] != sep_id:
                         pre_sep_id = pre_sep_id - 1
-                    
+                    print(decode_tokens)
+
                     if pre_sep_id < len(decode_tokens) - 1:
                         # trim_decode_tokens = tokenizer.DecodeIds(decode_tokens[pre_sep_id + 1:-1])
                         trim_decode_tokens = tokenizer.text_tokenizer.convert_ids_to_tokens(decode_tokens[pre_sep_id + 1:-1])
@@ -612,7 +625,8 @@ def get_token_stream(model, context_tokens, tokenizer, args, temperature, top_k,
     if args.world_size > 1:
         torch.distributed.broadcast(context_length_tensor, mpu.get_model_parallel_src_rank(), group=mpu.get_model_parallel_group())
         torch.distributed.broadcast(context_tokens_tensor, mpu.get_model_parallel_src_rank(), group=mpu.get_model_parallel_group())
-
+   # import pdb
+    #pdb.set_trace()
     context_length = context_length_tensor.min().item()
     tokens, attention_mask, position_ids=get_batch(context_tokens_tensor, args)
 

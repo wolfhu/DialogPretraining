@@ -1,7 +1,7 @@
 #!/bin/bash
-
-CHECKPOINT_PATH=~/xiaoicechatexp/kaizh/gpt2_345m_novel_chat/
-
+export CUDA_VISIBLE_DEVICES=1
+#CHECKPOINT_PATH=~/xiaoicechatexp/kaizh/gpt2_345m_novel_chat/
+CHECKPOINT_PATH=/data/gpt_model/
 MPSIZE=1
 NLAYERS=24
 NHIDDEN=1024
@@ -14,7 +14,7 @@ MAXSEQLEN=960
 #SAMPLING ARGS
 TEMP=1
 #If TOPK/TOPP are 0 it defaults to greedy sampling, top-k will also override top-p
-TOPK=50
+TOPK=20
 TOPP=0.95
 
 
@@ -44,6 +44,7 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS \
        --cache-dir cache \
        --seq-length $MAXSEQLEN \
        --out-seq-length $MAXSEQLEN \
+       --max-context-turn 1 \
        --temperature $TEMP \
        --top_k $TOPK \
        --num-samples 0 \
