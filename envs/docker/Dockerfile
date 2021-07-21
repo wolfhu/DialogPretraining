@@ -204,7 +204,7 @@ RUN pip install cython
 RUN pip install tensorflow-gpu==1.12.2 deepdish easydict h5py tensorboardX pysrt opencv-python pycocotools tensorpack ninja
 #RUN conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
 RUN pip install torch==1.5.0+cu101 torchvision==0.6.0+cu101 -f https://download.pytorch.org/whl/torch_stable.html
-RUN pip install boto3 tqdm flask jieba pandas nltk sentencepiece regex zhconv
+RUN pip install boto3 tqdm flask jieba pandas nltk sentencepiece regex zhconv, editdistance
 
 # Install apex
 WORKDIR $STAGE_DIR

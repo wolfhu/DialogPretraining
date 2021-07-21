@@ -1,3 +1,5 @@
+import editdistance
+
 
 def dedup():
     exist_utt = set()
@@ -43,8 +45,8 @@ def count_utt():
             break
 
 
-
 if __name__ == '__main__':
+    #count_qasim()
     count_utt()
   #dedup()
   #filelist_test()
