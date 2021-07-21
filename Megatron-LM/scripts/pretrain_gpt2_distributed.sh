@@ -2,7 +2,7 @@
 
 # Runs the "345M" parameter model
 
-GPUS_PER_NODE=4
+GPUS_PER_NODE=8
 # Change for multinode config
 MASTER_ADDR=localhost
 MASTER_PORT=6000
@@ -12,27 +12,21 @@ WORLD_SIZE=$(($GPUS_PER_NODE*$NNODES))
 
 DISTRIBUTED_ARGS="--nproc_per_node $GPUS_PER_NODE --nnodes $NNODES --node_rank $NODE_RANK --master_addr $MASTER_ADDR --master_port $MASTER_PORT"
 
-python3 -m torch.distributed.launch $DISTRIBUTED_ARGS \
+python -m torch.distributed.launch $DISTRIBUTED_ARGS \
        pretrain_gpt2.py \
        --num-layers 24 \
        --hidden-size 1024 \
        --num-attention-heads 16 \
-       --batch-size 40 \
+       --batch-size 8 \
        --seq-length 1024 \
        --max-position-embeddings 1024 \
-       --train-iters 2000 \
-       --save checkpoints/poem \
-       --load checkpoints/poem \
+       --train-iters 320000 \
+       --save checkpoints/gpt2_345m \
+       --load checkpoints/gpt2_345m \
        --resume-dataloader \
-       --train-data /home/t-yuniu/xiaoice/yuniu/dataset/poem/train.1w.json \
-       --text-key text \
+       --train-data wikipedia \
        --lazy-loader \
-       --loose-json \
-       --reset-position-ids \
-       --reset-attention-mask \
-       --eod-mask-loss \
-       --tokenizer-type GPT2WordPieceTokenizer \
-       --tokenizer-model-type gpt2-large-chinese-refine \
+       --tokenizer-type GPT2BPETokenizer \
        --cache-dir cache \
        --split 949,50,1 \
        --distributed-backend nccl \

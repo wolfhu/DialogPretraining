@@ -17,8 +17,12 @@
 
 import torch
 
+# from .electral import BertConfig
+# from .electral import BertForPreTraining, BertForMaskedLM
+# from .electral import BertLayerNorm
+# from .electral import BertForElectra
 from .modeling import BertConfig
-from .modeling import BertForPreTraining, BertForMaskedLM
+from .modeling import BertForPreTraining, BertForMaskedLM, BertForLMFinetune
 from .modeling import BertLayerNorm
 
 
@@ -73,12 +77,21 @@ class BertModel(torch.nn.Module):
                 fp32_tokentypes=args.fp32_tokentypes,
                 layernorm_epsilon=args.layernorm_epsilon,
                 deep_init=args.deep_init)
-            self.model = BertForPreTraining(self.config)
+            # self.model = BertForPreTraining(self.config)
+            assert isinstance(self.config, BertConfig)
+            print("self.config is   ", self.config)
+            print('ds type is ', args.data_set_type)
+            if 'finetune' in args.data_set_type.lower():
+                self.model = BertForLMFinetune(self.config)
+            else:
+                self.model = BertForMaskedLM(self.config)
+            # self.model = BertForLMFinetune(self.config)
+            print("mode is ", self.model)
 
     def forward(self, input_tokens, token_type_ids=None,
-                attention_mask=None, checkpoint_activations=False):
+                attention_mask=None, lm_labels = None, checkpoint_activations=False):
         return self.model(
-            input_tokens, token_type_ids, attention_mask,
+            input_tokens, token_type_ids, attention_mask, lm_labels,
             checkpoint_activations=checkpoint_activations)
 
     def state_dict(self, destination=None, prefix='', keep_vars=False):

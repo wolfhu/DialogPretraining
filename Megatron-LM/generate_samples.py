@@ -24,7 +24,6 @@ import torch
 import torch.nn.functional as F
 import argparse
 import time
-import math
 from arguments import get_args
 from utils import Timers
 from pretrain_gpt2 import initialize_distributed
@@ -97,8 +96,7 @@ def get_batch(context_tokens, args):
         tokens,
         args.eod_token,
         args.reset_position_ids,
-        args.reset_attention_mask,
-        args.eod_mask_loss)
+        args.reset_attention_mask)
 
     return tokens, attention_mask, position_ids
 
@@ -130,15 +128,6 @@ def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')):
     
     return logits
 
-
-def split_batch(input_text, args):
-    batch_size = args.batch_size
-    batches = []
-    for i in range(math.ceil(len(input_text)/batch_size)):
-        batches.append(input_text[i*batch_size:i*batch_size+batch_size])
-    return batches
-
-
 def generate_samples_input_from_file(model, tokenizer, args):
 
     if args.sample_input_file == "":
@@ -150,8 +139,7 @@ def generate_samples_input_from_file(model, tokenizer, args):
     if mpu.get_model_parallel_rank() == 0:
         fname = open(args.sample_input_file, "r")
         all_raw_text = fname.readlines()
-        batches = split_batch(all_raw_text, args)
-        input_count = len(batches)
+        input_count = len(all_raw_text)
         input_pos = 0
         if args.sample_output_file == "":
             print("Argument: sample-output-file can't be empty, setting it to\n")
@@ -167,29 +155,24 @@ def generate_samples_input_from_file(model, tokenizer, args):
             terminate_runs=0
 
             if mpu.get_model_parallel_rank() == 0:
-                # 增加一个if语句，防止漏掉最后一个input sample. 20200521
-                if input_pos < input_count:
-                    batch = batches[input_pos]
-                    args.batch_size = len(batch)  # 当batch size大于样本量，需要归一化
+                raw_text = all_raw_text[input_pos]
                 input_pos += 1
-                if input_pos > input_count:
-                    batch = ["stop"]
+                if input_pos == input_count:
+                    raw_text = "stop"
 
-                if "stop" in batch:
+                if "stop" in raw_text:
                     terminate_runs = 1
                 else:
-                    context_list = [tokenizer.EncodeAsIds(text).tokenization for text in batch]
-                    # context_tokens = tokenizer.EncodeAsIds(raw_text).tokenization
-                    context_length_list = [len(context_tokens) for context_tokens in context_list]
+                    context_tokens = tokenizer.EncodeAsIds(raw_text).tokenization
+                    context_length = len(context_tokens)
 
-                    # if context_length >=args.seq_length//2:
-                    #     print("\nContext length", context_length, \
-                    #         "\nPlease give smaller context (half of the sequence length)!")
-                    #     continue
+                    if context_length >=args.seq_length//2:
+                        print("\nContext length", context_length, \
+                            "\nPlease give smaller context (half of the sequence length)!")
+                        continue
             else:
-                context_list = [tokenizer.EncodeAsIds("EMPTY TEXT").tokenization]
-                # context_tokens = tokenizer.EncodeAsIds("EMPTY TEXT").tokenization
-                context_length_list = [len(context_list[0])]
+                context_tokens = tokenizer.EncodeAsIds("EMPTY TEXT").tokenization
+                context_length = len(context_tokens)
             
             terminate_runs_tensor = torch.cuda.LongTensor([terminate_runs])
             torch.distributed.broadcast(terminate_runs_tensor, mpu.get_model_parallel_src_rank(), group=mpu.get_model_parallel_group())
@@ -199,20 +182,30 @@ def generate_samples_input_from_file(model, tokenizer, args):
                 return
 
             start_time = time.time()
-            token_stream = get_token_stream(model, context_list, tokenizer, args)
+            token_stream = get_token_stream(model, [context_tokens], tokenizer, args)
             for counter, decode_tokens in enumerate(token_stream):
                 # token_end = decode_tokens.find("<|endoftext|>")
                 # if token_end > 0:
                 #     break
                 decode_tokens, _ = decode_tokens
-                decode_tokens = decode_tokens.cpu().numpy().tolist()
+                decode_tokens = decode_tokens[0].cpu().numpy().tolist()
 
-            if mpu.get_model_parallel_rank() == 0 and decode_tokens:
-                for idx, text in enumerate(batch):
-                    trim_decode_tokens = tokenizer.DecodeIds(decode_tokens[idx])
-                    print("\nContext:", text)
-                    print("Megatron-LM:", trim_decode_tokens, flush=True)
-                    fname_out.write('\t'.join([text, trim_decode_tokens]) + '\n')
+            if mpu.get_model_parallel_rank() == 0:
+                os.system('clear')
+                #print("\nTaken time {:.2f}\n".format(time.time() - start_time), flush=True)
+                print("\nContext:", raw_text, flush=True)
+                trim_decode_tokens = tokenizer.DecodeIds(decode_tokens)[len(raw_text):]
+                #print("\nMegatron-LM:", trim_decode_tokens.replace("\n", "\n\n"), flush=True)
+                print("\nMegatron-LM:", trim_decode_tokens, flush=True)
+
+                fname_out.write("\nContext:")
+                fname_out.write(raw_text)
+                fname_out.write("\n\nMegatron-LM:")
+                fname_out.write(trim_decode_tokens)
+                #fname_out.write(trim_decode_tokens.replace("\n", "\n\n"))
+                fname_out.write("\n")
+ 
+            raw_text = None
 
             torch.distributed.barrier(group=mpu.get_model_parallel_group())
             context_count += 1
@@ -241,10 +234,10 @@ def generate_samples_interactive(model, tokenizer, args):
                     context_tokens = tokenizer.EncodeAsIds(raw_text).tokenization
                     context_length = len(context_tokens)
 
-                    # if context_length >=args.seq_length//2:
-                    #     print("\nContext length", context_length, \
-                    #         "\nPlease give smaller context (half of the sequence length)!")
-                    #     continue
+                    if context_length >=args.seq_length//2:
+                        print("\nContext length", context_length, \
+                            "\nPlease give smaller context (half of the sequence length)!")
+                        continue
             else:
                 context_tokens = tokenizer.EncodeAsIds("EMPTY TEXT").tokenization
                 context_length = len(context_tokens)
@@ -269,16 +262,16 @@ def generate_samples_interactive(model, tokenizer, args):
                     os.system('clear')
                     #print("\nTaken time {:.2f}\n".format(time.time() - start_time), flush=True)
                     print("\nContext:", raw_text, flush=True)
-                    trim_decode_tokens = tokenizer.DecodeIds(decode_tokens)
+                    trim_decode_tokens = tokenizer.DecodeIds(decode_tokens)[len(raw_text):]
                     #print("\nGPT2:", trim_decode_tokens, flush=True)
                     #print("\nMegatron-LM:", trim_decode_tokens.replace("\n", "\n\n"), flush=True)
                     print("\nMegatron-LM:", trim_decode_tokens, flush=True)
 
-            if mpu.get_model_parallel_rank() == 0 and decode_tokens:
+            if mpu.get_model_parallel_rank() == 0:
                 os.system('clear')
                 #print("\nTaken time {:.2f}\n".format(time.time() - start_time), flush=True)
                 print("\nContext:", raw_text, flush=True)
-                trim_decode_tokens = tokenizer.DecodeIds(decode_tokens)
+                trim_decode_tokens = tokenizer.DecodeIds(decode_tokens)[len(raw_text):]
                 #print("\nGPT2:", trim_decode_tokens, flush=True)
                 #print("\nMegatron-LM:", trim_decode_tokens.replace("\n", "\n\n"), flush=True)
                 print("\nMegatron-LM:", trim_decode_tokens, flush=True)
@@ -387,11 +380,7 @@ def sample_sequence_batch(model, context_tokens, context_lengths, attention_mask
                 maxlen = org_context_length + args.out_seq_length
 
         lengths = torch.ones([batch_size]).long().cuda()*maxlen
-
-        if args.recompute:
-            print('Transformer cache off')
-        else:
-            print('Transformer cache on')
+        
         while context_length <= (maxlen):
 
             if args.recompute:
@@ -415,23 +404,16 @@ def sample_sequence_batch(model, context_tokens, context_lengths, attention_mask
                 log_probs = F.softmax(logits, dim=-1)
                 prev = torch.multinomial(log_probs, num_samples=1).view(-1)
 
-            print_probs = []
-            for i, p in enumerate(prev):
-                # log_probs = F.softmax(logits, dim=-1)
-                log_probs = logits
-                print_probs.append(log_probs[i, p].item())
-            # DEBUG
-            print('prev: ')
-            print(' '.join([str(p) for p in prev.tolist()]))
-            print('print_probs: ')
-            print(' '.join([str(prob) for prob in print_probs]))
+            print_logits = []
+            for p in prev:
+                print_logits.append([logits[i, p].item() for i in range(batch_size)])
             started = context_lengths <= context_length
             tokens[:, context_length] = switch(tokens[:, context_length].view(-1), prev, started)
             context_length += 1
             counter += 1
 
             done_token = (prev == eos_id).byte()
-            just_finished = (done_token & ~is_done).to(torch.bool)
+            just_finished = (done_token & ~is_done).bool()
             lengths[just_finished.view(-1)] = context_length
             was_done = is_done
             is_done = is_done | done_token
@@ -498,14 +480,13 @@ def main():
     # args.batch_size = 1
 
     args.device = torch.cuda.current_device()
-    print('args.device: ' + str(args.device))
 
     #generate samples
     if args.num_samples == 0:
+        args.batch_size = 1
         if args.sample_input_file != "":
             generate_samples_input_from_file(model, tokenizer, args)
         else:
-            args.batch_size = 1
             generate_samples_interactive(model, tokenizer, args)
     else:
         write_and_generate_samples_unconditional(model, tokenizer, args)

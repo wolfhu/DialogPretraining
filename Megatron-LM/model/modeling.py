@@ -1015,6 +1015,41 @@ class BertForMaskedLM(PreTrainedBertModel):
         else:
             return prediction_scores
 
+class Dense_OuputLayer(nn.Module):
+    def __init__(self, nh_size, output_size, activation=nn.Softmax()):
+        super(Dense_OuputLayer, self).__init__()
+        self.dense = nn.Linear(nh_size, output_size)
+        self.activation = activation
+
+    def forward(self, hidden_states):
+        # We "pool" the model by simply taking the hidden state corresponding
+        # to the first token.
+        pooled_output = self.dense(hidden_states)
+        pooled_output = self.activation(pooled_output)
+        return pooled_output
+
+class BertForLMFinetune(PreTrainedBertModel):
+
+    def __init__(self, config):
+        super(BertForLMFinetune, self).__init__(config)
+        self.bert = BertModel(config)
+        # self.cls = BertOnlyMLMHead(config, self.bert.embeddings.word_embeddings.weight)
+        self.finetune = Dense_OuputLayer(config.hidden_size, 3)
+        self.apply(self.init_bert_weights)
+
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, masked_lm_labels=None, checkpoint_activations=False):
+        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
+                                       output_all_encoded_layers=False, checkpoint_activations=checkpoint_activations)
+        # prediction_scores = self.cls(sequence_output)
+        output = self.finetune(pooled_output)
+
+        # if masked_lm_labels is not None:
+        #     loss_fct = CrossEntropyLoss(ignore_index=-1)
+        #     masked_lm_loss = loss_fct(output.view(-1, 2), masked_lm_labels.view(-1))
+        #     return masked_lm_loss
+        # else:
+        #     return output
+        return output
 
 class BertForNextSentencePrediction(PreTrainedBertModel):
     """BERT model with next sentence prediction head.

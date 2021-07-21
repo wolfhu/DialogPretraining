@@ -167,6 +167,7 @@ def make_loaders(args):
     valid = None
     test = None
 
+    print('train data is ', args.train_data)
     if args.train_data is not None:
         train, tokenizer = data_utils.make_dataset(**data_set_args)
         if data_utils.should_split(split):
@@ -174,10 +175,12 @@ def make_loaders(args):
         eval_set_args['tokenizer'] = tokenizer
 
     # make training and val dataset if necessary
+    print('valid_data is ', args.valid_data)
     if valid is None and args.valid_data is not None:
         eval_set_args['path'] = args.valid_data
         valid, tokenizer = data_utils.make_dataset(**eval_set_args)
         eval_set_args['tokenizer'] = tokenizer
+    print('test_data is ', args.test_data)
     if test is None and args.test_data is not None:
         eval_set_args['path'] = args.test_data
         test, tokenizer = data_utils.make_dataset(**eval_set_args)

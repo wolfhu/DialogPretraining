@@ -12,7 +12,7 @@ We officially support only python3.6.
 
 To use this repo please install the latest supported versions of PyTorch with GPU support. 
 
-Additionally, part of this codebase leverages tensorflow-cpu to (optionally) perform dataloading of TFRecords for BERT training. We recommend either utilizing the provided Dockerfile in [`./docker/`](docker) or creating a virtual environment (to avoid breaking existing tf installations) and install our `requirements.txt`. 
+Additionally, part of this codebase leverages tensorflow-cpu to (optionally) perform dataloading of TFRecords for BERT training. We recommend either utilizing the provided Dockerfile in [`./docker/`](./docker) or creating a virtual environment (to avoid breaking existing tf installations) and install our `requirements.txt`. 
 
 ```
 python -m pip install virtualenv
@@ -197,18 +197,18 @@ Once the json dataset is ready make sure to set the path in line 27 of `data_uti
 If your system is memory limited we also recommend running pretraining with the `--lazy-loader` argument as we've done. After preprocessing the dataset once, this will allow the dataset to be lazily loaded from disk, as opposed to storing it in memory. Make sure to run the code once on a 
 
 ## Collecting GPT2 Webtext Data
-We utilize the publicly available [OpenWebText](https://github.com/eukaryote31/openwebtext) library from [jcpeterson](https://github.com/jcpeterson/openwebtext) and [eukaryote31's](https://github.com/eukaryote31/openwebtext) work to download urls. We then filtered, cleaned, and deduplicated all downloaded content according to the procedure described in our [openwebtext](openwebtext) directory. For reddit URLS corresponding to content upto october 2018 we arrived at approximately 37GB of content.
+We utilize the publicly available [OpenWebText](https://github.com/eukaryote31/openwebtext) library from [jcpeterson](https://github.com/jcpeterson/openwebtext) and [eukaryote31's](https://github.com/eukaryote31/openwebtext) work to download urls. We then filtered, cleaned, and deduplicated all downloaded content according to the procedure described in our [openwebtext](./openwebtext) directory. For reddit URLS corresponding to content upto october 2018 we arrived at approximately 37GB of content.
 
 We recommend creating an alias for this dataset as described below.
 
 ## Aliasing datasets with corpora.py
 As mentioned in the previous Wikipedia data section we recommend aliasing datasets with human readable names (eg. `--train-data wikipedia`). This helps avoid forgetting arguments when submitting jobs, and allows one to combine datasets that would otherwise require different commandline options/data structures.
 
-Examples of how to create these dataset objects can be found in [`./data_utils/corpora.py`](data_utils/corpora.py). We recommend that the objects inherit from or adhere to the interface laid out by `torch.utils.data.Dataset` objects.
+Examples of how to create these dataset objects can be found in [`./data_utils/corpora.py`](./data_utils/corpora.py). We recommend that the objects inherit from or adhere to the interface laid out by `torch.utils.data.Dataset` objects.
 
-Any created datasets should be then added to the `NAMED_CORPORA` dictionary object in [`./data_utils/corpora.py`](data_utils/corpora.py). At runtime one can specify one or more corpora from the commandline with `--train-data corpus1 corpus2 corpus3`, `--valid-data corpus1 corpus2 corpus3`, or `--test-data ...`.
+Any created datasets should be then added to the `NAMED_CORPORA` dictionary object in [`./data_utils/corpora.py`](./data_utils/corpora.py). At runtime one can specify one or more corpora from the commandline with `--train-data corpus1 corpus2 corpus3`, `--valid-data corpus1 corpus2 corpus3`, or `--test-data ...`.
 
 ## Partitioning datasets into Train/Val/Test
 We support multiple ways to partition corpora into train/val/test splits. By specifying a `--split 95,5` commandline argument, the corpora specified by `--train-data` will have it's documents split proportionally into a 95%, 5% train/val split. The split is performed lazily on the fly and is efficient and deterministic from run to run given the same `--seed`. Note that if `--valid-data` or `--test-data` is specified then the train data will still be split accordingly, but `--valid-data`/`--test-data` will still be used as the validation/test source.
 
-We do realize that this method, while effective, introduces noise into the development process, since different seeds will change the dataset and outcome. To have fixed training/validation/test sets across all your runs please utilize our script [`./scripts/split_json.py`](scripts/split_json.py)
+We do realize that this method, while effective, introduces noise into the development process, since different seeds will change the dataset and outcome. To have fixed training/validation/test sets across all your runs please utilize our script [`./scripts/split_json.py`](./scripts/split_json.py)

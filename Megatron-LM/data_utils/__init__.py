@@ -23,6 +23,8 @@ from .datasets import json_dataset, csv_dataset, split_ds, ConcatDataset, SplitD
 from .lazy_loader import exists_lazy, make_lazy, lazy_array_loader
 from .tokenization import Tokenization, CommandToken, Tokenizer, CharacterLevelTokenizer, BertWordPieceTokenizer, GPT2BPETokenizer, make_tokenizer
 from . import corpora
+from .datasets import other_dataset
+from .datasets import bert_mlm_dataset
 
 TRAIN_DATA = 0
 VAL_DATA = 1
@@ -46,6 +48,7 @@ def get_ext(path):
 def get_dataset(path, **kwargs):
     """gets dataset object based on keyword args and file at `path`"""
     if supported_corpus(path):
+        print("start to go to supported corpus ", path)
         return corpora.NAMED_CORPORA[path](**kwargs)
     ext = get_ext(path)
     if '.json' in ext:
@@ -78,6 +81,7 @@ def make_dataset(path, seq_length, text_key, label_key, lazy=False, process_fn=N
             if supported_corpus(path_):
                 named_corpora = True
                 name = path_
+                print("named corpus ", corpora.NAMED_CORPORA)
                 path_ = corpora.NAMED_CORPORA[path_].PATH
             if torch.distributed.get_rank() == 0 and not exists_lazy(path_, data_type='data'):
                 # create cached version of dataset for lazy loading if it doesn't exist
@@ -118,25 +122,26 @@ def make_dataset(path, seq_length, text_key, label_key, lazy=False, process_fn=N
     # Split dataset into train/val/test (and wrap bert dataset)
     if should_split(split):
         ds = split_ds(ds, split)
-        if 'bert' in ds_type.lower():
+        if 'finetune' in ds_type.lower():
+            presplit_sentences = kwargs['presplit_sentences'] if 'presplit_sentences' in kwargs else False
+            dstype = bert_mlm_dataset
+            ds = [dstype(d, max_seq_len=seq_length, presplit_sentences=presplit_sentences) if d is not None else None
+                  for d in ds]
+        elif 'bert' in ds_type.lower():
             presplit_sentences = kwargs['presplit_sentences'] if 'presplit_sentences' in kwargs else False
             dstype = bert_sentencepair_dataset
             ds = [dstype(d, max_seq_len=seq_length, presplit_sentences=presplit_sentences)  if d is not None else None  for d in ds]
         elif ds_type.lower() == 'gpt2':
-            ds = [GPT2Dataset(d, max_seq_len=seq_length, bias_for_single_doc=True) if d is not None else None for d in ds]
-        elif ds_type.lower() == 'gpt2-rng':
-            ds = [GPT2Dataset(d, max_seq_len=seq_length, bias_for_single_doc=False) if d is not None else None for d in ds]
-        elif ds_type.lower() == 'transformerxl':
-            ds = [GPT2Dataset(d, max_seq_len=seq_length, random_across_doc_sampling=False, bias_for_single_doc=True) if d is not None else None for d in ds] 
+            ds = [GPT2Dataset(d, max_seq_len=seq_length) if d is not None else None for d in ds]
     else:
-        if 'bert' in ds_type.lower():
+        if 'finetune' in ds_type.lower():
+            presplit_sentences = kwargs['presplit_sentences'] if 'presplit_sentences' in kwargs else False
+            dstype = bert_mlm_dataset
+            ds = dstype(ds, max_seq_len=seq_length, presplit_sentences=presplit_sentences)
+        elif 'bert' in ds_type.lower():
             presplit_sentences = kwargs['presplit_sentences'] if 'presplit_sentences' in kwargs else False
             dstype = bert_sentencepair_dataset
             ds = dstype(ds, max_seq_len=seq_length, presplit_sentences=presplit_sentences)
         elif ds_type.lower() == 'gpt2':
-            ds = GPT2Dataset(ds, max_seq_len=seq_length, bias_for_single_doc=True)
-        elif ds_type.lower() == 'gpt2-rng':
-            ds = GPT2Dataset(ds, max_seq_len=seq_length, bias_for_single_doc=False)
-        elif ds_type.lower() == 'transformerxl':
-            ds = GPT2Dataset(ds, max_seq_len=seq_length, random_across_doc_sampling=False, bias_for_single_doc=True)
+            ds = GPT2Dataset(ds, max_seq_len=seq_length)
     return ds, tokenizer

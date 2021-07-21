@@ -50,8 +50,7 @@ class GPT2Model(torch.nn.Module):
                  max_sequence_length,
                  checkpoint_activations,
                  checkpoint_num_layers=1,
-                 parallel_output=True,
-                 no_parallel=False):
+                 parallel_output=True):
 
         super(GPT2Model, self).__init__()
 
@@ -59,11 +58,9 @@ class GPT2Model(torch.nn.Module):
 
         init_method = init_method_normal(std=0.02)
 
-        self._no_parallel = no_parallel
-
         # Word embeddings (parallel).
         self.word_embeddings = mpu.VocabParallelEmbedding(
-            vocab_size, hidden_size, init_method=init_method, no_parallel=no_parallel)
+            vocab_size, hidden_size, init_method=init_method)
 
         # Position embedding (serial).
         self.position_embeddings = torch.nn.Embedding(max_sequence_length,
@@ -89,14 +86,13 @@ class GPT2Model(torch.nn.Module):
                                                        attention_dropout_prob,
                                                        output_dropout_prob,
                                                        checkpoint_activations,
-                                                       checkpoint_num_layers,
-                                                       no_parallel=no_parallel)
+                                                       checkpoint_num_layers)
 
 
     def add_tokentype_embeddings(self, num_tokentypes):
         if self.tokentype_embeddings is not None:
             raise Exception('tokentype embeddings is already initialized')
-        if (not torch.distributed.is_initialized()) or torch.distributed.get_rank() == 0:
+        if torch.distributed.get_rank() == 0:
             print('adding embedding for {} tokentypes'.format(num_tokentypes),
                   flush=True)
         self.tokentype_embeddings = torch.nn.Embedding(num_tokentypes,
@@ -128,11 +124,11 @@ class GPT2Model(torch.nn.Module):
 
         # Parallel logits.
         transformer_output_parallel = mpu.copy_to_model_parallel_region(
-            transformer_output) if not self._no_parallel else transformer_output
+            transformer_output)
         logits_parallel = F.linear(transformer_output_parallel,
                                    self.word_embeddings.weight)
 
-        if self.parallel_output or self._no_parallel:
+        if self.parallel_output:
             output = logits_parallel
         else:
             output = mpu.gather_from_model_parallel_region(logits_parallel)

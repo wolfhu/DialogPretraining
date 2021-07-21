@@ -27,8 +27,7 @@ python -m torch.distributed.launch $DISTRIBUTED_ARGS \
        --resume-dataloader \
        --train-data wikipedia \
        --lazy-loader \
-       --tokenizer-type GPT2WordPieceTokenizer \
-       --tokenizer-model-type gpt2-large-chinese-refine \
+       --tokenizer-type GPT2BPETokenizer \
        --cache-dir cache \
        --split 949,50,1 \
        --distributed-backend nccl \

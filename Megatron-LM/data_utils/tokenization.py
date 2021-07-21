@@ -33,15 +33,14 @@ def make_tokenizer(tokenizer_type, corpus, model_path=None, vocab_size=None, mod
     Helper function to instantiate a tokenizer given common combinations of options.
     """
     tokenizer_class = tokenizer_type
+    print("tokenizer type is ", tokenizer_class)
     if isinstance(tokenizer_class, str):
         tokenizer_class = eval(tokenizer_class)
     if tokenizer_class is BertWordPieceTokenizer:
         return BertWordPieceTokenizer(model_type, **kwargs)
-    elif tokenizer_class is GPT2WordPieceTokenizer:
-        return GPT2WordPieceTokenizer(model_type, **kwargs)
     elif tokenizer_class is GPT2BPETokenizer:
         return GPT2BPETokenizer(**kwargs)
-    text_tokenizer =  tokenizer_class(corpus=corpus, vocab_size=vocab_size, model_path=model_path, model_type=model_type,
+    text_tokenizer = tokenizer_class(corpus=corpus, vocab_size=vocab_size, model_path=model_path, model_type=model_type,
                                       pad_token=pad_token, character_coverage=character_coverage)
     return Tokenizer(text_tokenizer, command_tokens, type_tokens)
 
@@ -190,25 +189,6 @@ DEFAULT_TYPE_TOKENS = [
                             ('arg2', 10),
 ]
 DEFAULT_TYPE_TOKENS = prep_type_tokens(DEFAULT_TYPE_TOKENS)
-
-# Some Chinese Tokens are not in bert-base-chinese vocab, Replace them as follow
-BERT_BASE_CHINESE_REPLACE_DICT = {
-    "…":"...",
-    "—":"-",
-    "“":"\"",
-    "”":"\"",
-    "‘":"'",
-    "’":"'"
-}
-
-def BertBaseChineseProcessFunc(text):
-    new_text = []
-    for ch in text:
-        if ch in BERT_BASE_CHINESE_REPLACE_DICT:
-            new_text.append(BERT_BASE_CHINESE_REPLACE_DICT[ch])
-        else:
-            new_text.append(ch)
-    return "".join(new_text)
 
 class Tokenizer(object):
     """
@@ -712,25 +692,17 @@ class BertWordPieceTokenizer(Tokenizer):
     """
     def __init__(self, tokenizer_model_type=None, cache_dir=None, **kwargs):
         # default to bert-large-uncased tokenizer
+        print("tokenizer_model_type is ", tokenizer_model_type)
         if tokenizer_model_type not in PRETRAINED_VOCAB_ARCHIVE_MAP:
             tokenizer_model_type = 'bert-large-uncased'
-        try:
-            if torch.distributed.get_rank() == 0:
-                print('loading BertWordPieceTokenizer (', tokenizer_model_type, ') from cache_dir ', cache_dir)
-        except:
+        if torch.distributed.get_rank() == 0:
             print('loading BertWordPieceTokenizer (', tokenizer_model_type, ') from cache_dir ', cache_dir)
-        #do_lower_case = not ('-cased' in tokenizer_model_type or 'chinese' in tokenizer_model_type)
-        do_lower_case = not ('-cased' in tokenizer_model_type)
+        do_lower_case = not ('-cased' in tokenizer_model_type or 'chinese' in tokenizer_model_type)
         self.text_tokenizer = BertTokenizer.from_pretrained(tokenizer_model_type, do_lower_case=do_lower_case, cache_dir=cache_dir)
-        try:
-            if torch.distributed.get_rank() == 0:
-                print('loaded', tokenizer_model_type)
-        except:
+        if torch.distributed.get_rank() == 0:
             print('loaded', tokenizer_model_type)
         # disable max len warnings by increasing max len
         self.text_tokenizer.max_len = int(1e12)
-
-        self._text_process_fn = BertBaseChineseProcessFunc if 'chinese' in tokenizer_model_type else None
 
         # set command tokens from wordpiece tokenizer values
         self.num_command_tokens = 5
@@ -775,8 +747,6 @@ class BertWordPieceTokenizer(Tokenizer):
     def EncodeAsIds(self, text, process_fn=None):
         """convert text to wordpiece Ids"""
         processed_text = text
-        if self._text_process_fn is not None:
-            processed_text = self._text_process_fn(processed_text)
         if process_fn is not None:
             processed_text = process_fn(processed_text)
         tokens = self.text_tokenizer.tokenize(processed_text)
@@ -786,8 +756,6 @@ class BertWordPieceTokenizer(Tokenizer):
     def EncodeAsTokens(self, text, process_fn=None):
         """convert wordpiece token to Id"""
         processed_text = text
-        if self._text_process_fn is not None:
-            processed_text = self._text_process_fn(processed_text)
         if process_fn is not None:
             processed_text = process_fn(processed_text)
         tokens = self.text_tokenizer.tokenize(processed_text)
@@ -828,26 +796,6 @@ class BertWordPieceTokenizer(Tokenizer):
         if isinstance(Tokens, Tokenization):
             Tokens = Tokens.tokenization
         return ' '.join(Tokens)
-
-
-class GPT2WordPieceTokenizer(BertWordPieceTokenizer):
-    def __init__(self, tokenizer_model_type=None, cache_dir=None, **kwargs):
-        super(GPT2WordPieceTokenizer, self).__init__(tokenizer_model_type, cache_dir, **kwargs)
-        self.num_command_tokens = 6
-        self._command_tokens = [
-            CommandToken('pad', '[PAD]', self.text_tokenizer.vocab['[PAD]']),
-            CommandToken('ENC', '[CLS]', self.text_tokenizer.vocab['[CLS]']),
-            CommandToken('MASK', '[MASK]', self.text_tokenizer.vocab['[MASK]']),
-            CommandToken('unk', '[UNK]', self.text_tokenizer.vocab['[UNK]']),
-            CommandToken('sep', '[SEP]', self.text_tokenizer.vocab['[SEP]']),
-            CommandToken('eos', '[PAD]', self.text_tokenizer.vocab['[PAD]']),
-        ]
-        self.command_name_map = {tok.name: tok for tok in self._command_tokens}
-        self.command_token_map = {tok.token: tok for tok in self._command_tokens}
-        self.command_id_map = {tok.Id: tok for tok in self._command_tokens}
-        self._command_token_tokens = list(self.command_token_map.keys())
-        self._command_token_vocab = {t: Id for Id, t in self.command_id_map.items()}
-
 
 class GPT2BPETokenizer(Tokenizer):
     def __init__(self, cache_dir=None, **kwargs):

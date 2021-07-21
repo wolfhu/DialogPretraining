@@ -59,13 +59,13 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
     """
     def __init__(self, hidden_size, num_attention_heads,
                  attention_dropout_prob, output_dropout_prob,
-                 init_method, output_layer_init_method=None, no_parallel=False):
+                 init_method, output_layer_init_method=None):
         super(GPT2ParallelSelfAttention, self).__init__()
         # Set output layer initialization if not provided.
         if output_layer_init_method is None:
             output_layer_init_method = init_method
         # Per attention head and per partition values.
-        world_size = get_model_parallel_world_size() if not no_parallel else 1
+        world_size = get_model_parallel_world_size()
         self.hidden_size_per_partition = divide(hidden_size, world_size)
         self.hidden_size_per_attention_head = divide(hidden_size,
                                                      num_attention_heads)
@@ -75,8 +75,7 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
         self.query_key_value = ColumnParallelLinear(hidden_size, 3*hidden_size,
                                                     stride=3,
                                                     gather_output=False,
-                                                    init_method=init_method,
-                                                    no_parallel=no_parallel)
+                                                    init_method=init_method)
         # Dropout. Note that for a single iteration, this layer will generate
         # different outputs on different number of parallel partitions but
         # on average it should not be partition dependent.
@@ -86,8 +85,7 @@ class GPT2ParallelSelfAttention(torch.nn.Module):
         self.dense = RowParallelLinear(hidden_size,
                                        hidden_size,
                                        input_is_parallel=True,
-                                       init_method=output_layer_init_method,
-                                       no_parallel=no_parallel)
+                                       init_method=output_layer_init_method)
         self.output_dropout = torch.nn.Dropout(output_dropout_prob)
 
     def _transpose_for_scores(self, tensor):
@@ -192,7 +190,7 @@ class GPT2ParallelMLP(torch.nn.Module):
     """
 
     def __init__(self, hidden_size, output_dropout_prob, init_method,
-                 output_layer_init_method=None, no_parallel=False):
+                 output_layer_init_method=None):
         super(GPT2ParallelMLP, self).__init__()
         # Set output layer initialization if not provided.
         if output_layer_init_method is None:
@@ -200,13 +198,13 @@ class GPT2ParallelMLP(torch.nn.Module):
         # Project to 4h.
         self.dense_h_to_4h = ColumnParallelLinear(hidden_size, 4*hidden_size,
                                                   gather_output=False,
-                                                  init_method=init_method, no_parallel=no_parallel)
+                                                  init_method=init_method)
         # Project back to h.
         self.dense_4h_to_h = RowParallelLinear(
             4*hidden_size,
             hidden_size,
             input_is_parallel=True,
-            init_method=output_layer_init_method, no_parallel=no_parallel)
+            init_method=output_layer_init_method)
         self.dropout = torch.nn.Dropout(output_dropout_prob)
 
     def forward(self, hidden_states):
@@ -255,8 +253,7 @@ class GPT2ParallelTransformerLayer(torch.nn.Module):
                  output_dropout_prob,
                  layernorm_epsilon,
                  init_method,
-                 output_layer_init_method=None,
-                 no_parallel=False):
+                 output_layer_init_method=None):
         super(GPT2ParallelTransformerLayer, self).__init__()
         # Set output layer initialization if not provided.
         if output_layer_init_method is None:
@@ -272,8 +269,7 @@ class GPT2ParallelTransformerLayer(torch.nn.Module):
             attention_dropout_prob,
             output_dropout_prob,
             init_method,
-            output_layer_init_method=output_layer_init_method,
-            no_parallel=no_parallel)
+            output_layer_init_method=output_layer_init_method)
 
         # Layernorm on the input data.
         self.post_attention_layernorm = LayerNorm(hidden_size,
@@ -284,8 +280,7 @@ class GPT2ParallelTransformerLayer(torch.nn.Module):
             hidden_size,
             output_dropout_prob,
             init_method,
-            output_layer_init_method=output_layer_init_method,
-            no_parallel=no_parallel)
+            output_layer_init_method=output_layer_init_method)
 
     def forward(self, hidden_states, ltor_mask, layer_past=None, get_present=False):
         # hidden_states: [b, s, h]
@@ -373,8 +368,7 @@ class GPT2ParallelTransformer(torch.nn.Module):
                  checkpoint_num_layers=1,
                  layernorm_epsilon=1.0e-5,
                  init_method_std=0.02,
-                 use_scaled_init_for_output_weights=True,
-                 no_parallel=False):
+                 use_scaled_init_for_output_weights=True):
         super(GPT2ParallelTransformer, self).__init__()
         # Store activation checkpoiting flag.
         self.checkpoint_activations = checkpoint_activations
@@ -392,8 +386,7 @@ class GPT2ParallelTransformer(torch.nn.Module):
                 output_dropout_prob,
                 layernorm_epsilon,
                 unscaled_init_method(init_method_std),
-                output_layer_init_method=output_layer_init_method,
-                no_parallel=no_parallel)
+                output_layer_init_method=output_layer_init_method)
 
         # Transformer layers.
         self.layers = torch.nn.ModuleList(

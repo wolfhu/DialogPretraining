@@ -25,6 +25,7 @@ from torch.nn.parallel.distributed import DistributedDataParallel as torchDDP
 from fp16 import FP16_Optimizer
 import mpu
 import model
+from collections import OrderedDict
 
 
 def print_rank_0(message):
@@ -188,14 +189,8 @@ def get_checkpoint_name(checkpoints_path, iteration, release=False, mp_rank=None
         d = 'release'
     else:
         d = 'iter_{:07d}'.format(iteration)
-    
-    if mp_rank is None:
-        if torch.distributed.is_initialized():
-            mp_rank = mpu.get_model_parallel_rank()
-        else:
-            mp_rank = 0
     return os.path.join(checkpoints_path, d,
-                        'mp_rank_{:02d}'.format(mp_rank),
+                        'mp_rank_{:02d}'.format(mpu.get_model_parallel_rank() if mp_rank is None else mp_rank),
                         'model_optim_rng.pt')
 
 
@@ -284,13 +279,9 @@ def load_checkpoint(model, optimizer, lr_scheduler, args):
 
     # Checkpoint.
     checkpoint_name = get_checkpoint_name(args.load, iteration, release)
-
-    if torch.distributed.is_initialized() and mpu.get_data_parallel_rank() == 0:
+    if mpu.get_data_parallel_rank() == 0:
         print('global rank {} is loading checkpoint {}'.format(
             torch.distributed.get_rank(), checkpoint_name))
-    else:
-        print('global rank {} is loading checkpoint {}'.format(
-                0, checkpoint_name))
 
     # Load the checkpoint.
     sd = torch.load(checkpoint_name, map_location='cpu')
@@ -311,7 +302,10 @@ def load_checkpoint(model, optimizer, lr_scheduler, args):
 
     # Model.
     try:
-        model.load_state_dict(sd['model'])
+        _strict = True
+        if args.finetune:
+            _strict = False
+        model.load_state_dict(sd['model'], strict=_strict)
     except KeyError:
         print_rank_0('A metadata file exists but unable to load model '
                      'from checkpoint {}, exiting'.format(checkpoint_name))
@@ -346,9 +340,8 @@ def load_checkpoint(model, optimizer, lr_scheduler, args):
                          'state.'.format(checkpoint_name))
             exit()
 
-    if torch.distributed.is_initialized():
-        torch.distributed.barrier()
-    if (not torch.distributed.is_initialized()) or mpu.get_data_parallel_rank() == 0:
+    torch.distributed.barrier()
+    if mpu.get_data_parallel_rank() == 0:
         print('  successfully loaded {}'.format(checkpoint_name))
 
     return iteration

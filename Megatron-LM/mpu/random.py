@@ -163,14 +163,11 @@ def model_parallel_cuda_manual_seed(seed):
     """
     # 2718 is just for fun and any POSITIVE value will work.
     offset = seed + 2718
-    if torch.distributed.is_initialized():
-        model_parallel_seed = offset + get_model_parallel_rank()
-    else:
-        model_parallel_seed = offset
+    model_parallel_seed = offset + get_model_parallel_rank()
     # Data parallel gets the original sedd.
     data_parallel_seed = seed
 
-    if torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
+    if torch.distributed.get_rank() == 0:
         print('> initializing model parallel cuda seeds on global rank {}, '
               'model parallel rank {}, and data parallel rank {} with '
               'model parallel seed: {} and data parallel seed: {}'.format(

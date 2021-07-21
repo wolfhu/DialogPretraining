@@ -21,9 +21,6 @@ import logging
 import os
 import unicodedata
 from io import open
-from pathlib import Path, PureWindowsPath
-import torch
-import zhconv
 
 from .file_utils import cached_path
 
@@ -37,9 +34,6 @@ PRETRAINED_VOCAB_ARCHIVE_MAP = {
     'bert-base-multilingual-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-multilingual-uncased-vocab.txt",
     'bert-base-multilingual-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-multilingual-cased-vocab.txt",
     'bert-base-chinese': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-chinese-vocab.txt",
-    #'gpt2-large-chinese': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-chinese-vocab.txt",
-    'gpt2-large-chinese' : str(Path(PureWindowsPath("resources\\tokenizer\\bert\\bert-base-chinese-vocab.txt"))),
-    'gpt2-large-chinese-refine' : str(Path(PureWindowsPath("resources\\tokenizer\\bert\\bert-base-chinese-unuse-replaced-vocab.txt"))),
 }
 PRETRAINED_VOCAB_POSITIONAL_EMBEDDINGS_SIZE_MAP = {
     'bert-base-uncased': 512,
@@ -49,13 +43,8 @@ PRETRAINED_VOCAB_POSITIONAL_EMBEDDINGS_SIZE_MAP = {
     'bert-base-multilingual-uncased': 512,
     'bert-base-multilingual-cased': 512,
     'bert-base-chinese': 512,
-    'gpt2-large-chinese': 1024,
-    'gpt2-large-chinese-refine' : 1024
 }
 VOCAB_NAME = 'vocab.txt'
-
-# init zhconv dict
-zhconv.convert('在現代，機械計算機的應用已經完全被電子計算機所取代', 'zh-cn')
 
 
 def load_vocab(vocab_file):
@@ -151,6 +140,7 @@ class BertTokenizer(object):
         Instantiate a PreTrainedBertModel from a pre-trained model file.
         Download and cache the pre-trained model file if needed.
         """
+        print("pretrained_model_name_or_path ", pretrained_model_name_or_path)
         if pretrained_model_name_or_path in PRETRAINED_VOCAB_ARCHIVE_MAP:
             vocab_file = PRETRAINED_VOCAB_ARCHIVE_MAP[pretrained_model_name_or_path]
         else:
@@ -161,6 +151,7 @@ class BertTokenizer(object):
         try:
             resolved_vocab_file = cached_path(vocab_file, cache_dir=cache_dir)
         except EnvironmentError:
+            logger.error("failed to resolved_vocab_file")
             logger.error(
                 "Model name '{}' was not found in model name list ({}). "
                 "We assumed '{}' was a path or url but couldn't find any file "
@@ -174,17 +165,6 @@ class BertTokenizer(object):
         else:
             logger.info("loading vocabulary file {} from cache at {}".format(
                 vocab_file, resolved_vocab_file))
-        
-        try:
-            if torch.distributed.get_rank() == 0:
-                if resolved_vocab_file == vocab_file:
-                    print("loading vocabulary file {}".format(vocab_file))
-                else:
-                    print("loading vocabulary file {} from cache at {}".format(
-                        vocab_file, resolved_vocab_file))
-        except:
-            pass
-
         if pretrained_model_name_or_path in PRETRAINED_VOCAB_POSITIONAL_EMBEDDINGS_SIZE_MAP:
             # if we're using a pretrained model, ensure the tokenizer wont index sequences longer
             # than the number of positional embeddings
@@ -266,18 +246,9 @@ class BasicTokenizer(object):
     def _tokenize_chinese_chars(self, text):
         """Adds whitespace around any CJK character."""
         output = []
-
-        # This was added on 2020/05/14 Convert Chinese from traditional to simple
-        # sentence level convert
-        # text = zhconv.convert(text, 'zh-cn')
-
         for char in text:
             cp = ord(char)
             if self._is_chinese_char(cp):
-                # This was added on 2020/05/14  Convert Chinese from traditional to simple
-                # char level convert
-                char = zhconv.convert(char, 'zh-cn')
-
                 output.append(" ")
                 output.append(char)
                 output.append(" ")

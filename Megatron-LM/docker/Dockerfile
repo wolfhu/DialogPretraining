@@ -1,7 +1,7 @@
 # ===========
 # base images
 # ===========
-FROM nvcr.io/nvidia/pytorch:20.03-py3
+FROM nvcr.io/nvidia/pytorch:19.05-py3
 
 
 # ===============
@@ -11,7 +11,6 @@ RUN apt-get update && apt-get install -y \
     bash-completion \
     emacs \
     git \
-    vim \
     graphviz \
     htop \
     libopenexr-dev \
@@ -32,14 +31,9 @@ RUN pip install --upgrade --ignore-installed -r /tmp/requirements.txt
 # ===========
 # latest apex
 # ===========
-# RUN pip uninstall -y apex  
-# RUN git clone https://github.com/NVIDIA/apex.git /workspace/apex 
-# WORKDIR /workspace/apex 
-# RUN pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
+RUN pip uninstall -y apex && \
+git clone https://github.com/NVIDIA/apex.git ~/apex && \
+cd ~/apex && \ls
 
-#copy data to workdir
-WORKDIR /workspace
-COPY . /workspace/gpt2
-WORKDIR /workspace/gpt2
+pip install -v --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" .
 
-#ENTRYPOINT ["bash", "scripts/generate_text_gpt2_chat_interactive_simple_serve.sh"]

@@ -39,7 +39,7 @@ def add_model_config_args(parser):
     group.add_argument('--intermediate-size', type=int, default=None,
                        help='transformer embedding dimension for FFN'
                        'set to 4*`--hidden-size` if it is None')
-    group.add_argument('--num-layers', type=int, default=24,
+    group.add_argument('--num-layers', type=int, default=3,
                        help='num decoder layers')
     group.add_argument('--layernorm-epsilon', type=float, default=1e-5,
                        help='layer norm epsilon')
@@ -152,7 +152,9 @@ def add_training_args(parser):
                        help='Use checkpoint to set the values of the scheduler '
                        '(learning rate, warmup iterations, minimum learning '
                        'rate, maximum number of iterations, and decay style '
-                       'from checkpoint and ignore input arguments.')
+                       'from input arguments and ignore values from '
+                       'checkpoints. Notethat all the above values will be '
+                       'reset.')
     # model checkpointing
     group.add_argument('--save', type=str, default=None,
                        help='Output directory to save checkpoints to.')
@@ -265,7 +267,7 @@ def add_data_args(parser):
     group.add_argument('--shuffle', action='store_true',
                        help='Shuffle data. Shuffling is deterministic '
                        'based on seed and current epoch.')
-    group.add_argument('--train-data', nargs='+', default=None,
+    group.add_argument('--train-data', nargs='+',
                        help='Whitespace separated filenames or corpora names '
                        'for training.')
 
@@ -309,7 +311,7 @@ def add_data_args(parser):
     group.add_argument('--num-workers', type=int, default=2,
                        help="""Number of workers to use for dataloading""")
     group.add_argument('--tokenizer-model-type', type=str,
-                       default='bert-large-uncased',
+                       default='bert-base-chinese',
                        help="Model type to use for sentencepiece tokenization \
                        (one of ['bpe', 'char', 'unigram', 'word']) or \
                        bert vocab to use for BertWordPieceTokenizer (one of \
@@ -322,10 +324,9 @@ def add_data_args(parser):
                        choices=['CharacterLevelTokenizer',
                                 'SentencePieceTokenizer',
                                 'BertWordPieceTokenizer',
-                                'GPT2WordPieceTokenizer',
                                 'GPT2BPETokenizer'],
                        help='what type of tokenizer to use')
-    group.add_argument("--cache-dir", default=None, type=str,
+    group.add_argument("--cache-dir", default='cached', type=str,
                        help="Where to store pre-trained BERT downloads")
     group.add_argument('--use-tfrecords', action='store_true',
                        help='load `--train-data`, `--valid-data`, '
@@ -341,7 +342,9 @@ def add_data_args(parser):
     return parser
 
 
-def get_parser():
+def get_args():
+    """Parse all the args."""
+
     parser = argparse.ArgumentParser(description='PyTorch BERT Model')
     parser = add_model_config_args(parser)
     parser = add_fp16_config_args(parser)
@@ -349,15 +352,6 @@ def get_parser():
     parser = add_evaluation_args(parser)
     parser = add_text_generate_args(parser)
     parser = add_data_args(parser)
-    return parser
-
-def get_args():
-    parser = get_parser()
-    args = get_args_with_parser(parser)
-    return args
-
-def get_args_with_parser(parser):
-    """Parse all the args."""
 
     args = parser.parse_args()
 
@@ -369,22 +363,18 @@ def get_args_with_parser(parser):
     args.rank = int(os.getenv('RANK', '0'))
     args.world_size = int(os.getenv("WORLD_SIZE", '1'))
 
-    # add 20200515 by kaizh mpi will effect nccl distributed config
-    # remove this logic
-    #**********************************
-    # if os.getenv('OMPI_COMM_WORLD_LOCAL_RANK'):
-    #     # We are using (OpenMPI) mpirun for launching distributed data parallel processes
-    #     local_rank = int(os.getenv('OMPI_COMM_WORLD_LOCAL_RANK'))
-    #     local_size = int(os.getenv('OMPI_COMM_WORLD_LOCAL_SIZE'))
+    if os.getenv('OMPI_COMM_WORLD_LOCAL_RANK'):
+        # We are using (OpenMPI) mpirun for launching distributed data parallel processes
+        local_rank = int(os.getenv('OMPI_COMM_WORLD_LOCAL_RANK'))
+        local_size = int(os.getenv('OMPI_COMM_WORLD_LOCAL_SIZE'))
 
-    #     # Possibly running with Slurm
-    #     num_nodes = int(os.getenv('SLURM_JOB_NUM_NODES', '1'))
-    #     nodeid = int(os.getenv('SLURM_NODEID', '0'))
+        # Possibly running with Slurm
+        num_nodes = int(os.getenv('SLURM_JOB_NUM_NODES', '1'))
+        nodeid = int(os.getenv('SLURM_NODEID', '0'))
 
-    #     args.local_rank = local_rank
-    #     args.rank = nodeid*local_size + local_rank
-    #     args.world_size = num_nodes*local_size
-    #************************************
+        args.local_rank = local_rank
+        args.rank = nodeid*local_size + local_rank
+        args.world_size = num_nodes*local_size
 
     args.model_parallel_size = min(args.model_parallel_size, args.world_size)
     if args.rank == 0:

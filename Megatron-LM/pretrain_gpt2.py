@@ -412,7 +412,6 @@ def train(model, optimizer, lr_scheduler,
                 elapsed_time * 1000.0 / args.log_interval)
             log_string += ' learning rate {:.3E} |'.format(learning_rate)
             log_string += ' lm loss {:.6E} |'.format(avg_lm_loss)
-            log_string += ' lm ppl: {:.6E} |'.format(math.exp(min(20, avg_lm_loss)))
             if args.fp16:
                 log_string += ' loss scale {:.1f} |'.format(
                     optimizer.loss_scale)

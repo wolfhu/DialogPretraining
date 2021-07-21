@@ -162,9 +162,8 @@ class lazy_array_loader(object):
             else:
                 start = self.ends[index.start-1]
             stop = chr_lens[-1]
-            strings = self._file_read_without_decode(start, stop)
+            strings = self.file_read(start, stop)
             rtn = split_strings(strings, start, chr_lens)
-            rtn = [self._decode_oneline(s) for s in rtn]
             if self.map_fn is not None:
                 return self.map_fn([s for s in rtn])
         return rtn
@@ -173,12 +172,6 @@ class lazy_array_loader(object):
         return len(self.ends)
 
     def file_read(self, start=0, end=None):
-        """read specified portion of file"""
-        rtn = self._file_read_without_decode(start, end)
-        rtn = self._decode_oneline(rtn)
-        return rtn
-
-    def _file_read_without_decode(self, start=0, end=None):
         """read specified portion of file"""
 
         # atomic reads to avoid race conditions with multiprocess dataloader
@@ -192,10 +185,6 @@ class lazy_array_loader(object):
         else:
             rtn = self.file.read(end-start)
         self.read_lock.release()
-        
-        return rtn
-
-    def _decode_oneline(self, rtn):
         #TODO: @raulp figure out mem map byte string bug
         #if mem map'd need to decode byte string to string
         rtn = rtn.decode('utf-8', 'ignore')
